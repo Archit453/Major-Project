@@ -1,87 +1,97 @@
+#[derive(Debug,PartialEq,Clone)]
 
-pub struct Scanner{}
+pub enum Token {
+    Number(f64),
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LParen,
+    RParen,
+    Identifier(String),
+    Comma,
+    EOF
+}
 
-impl Scanner{
-    pub fn new(_source: &str) -> Self{
-        Self{}
+pub struct Scanner<'a>{
+    input: &'a str,
+    pos: usize,
+    read_pos: usize,
+    ch: Option<char>,
+}
+
+impl<'a> Scanner<'a>{
+    pub fn new(input: &'a str) -> Self{
+        let mut scanner = Scanner{
+            input,
+            pos: 0,
+            read_pos: 0,
+            ch: None,
+        };
+        scanner.read_char();
+        scanner
     }
-    pub fn scan_tokens(self:&Self) -> Result<Vec<Token>, String>{
-        todo!()
+
+    fn read_char(&mut self) {
+        self.ch = if self.read_pos >= self.input.len() {
+            None
+        } else {
+            Some(self.input.as_bytes()[self.read_pos] as char)
+        };
+        self.pos = self.read_pos;
+        self.read_pos += 1;
     }
-}
-#[derive(Debug)]
-pub struct TokenType {
-    // Single-character tokens.
-    left_paren;
-    right_paren; 
-    left_brace; 
-    right_brace;
-    comma;
-    dot; 
-    minus; 
-    plus; 
-    semicolon; 
-    slash; 
-    star;
-    // One or two character tokens.
-    bang; 
-    bang_equal;
-    equal;
-    equal_equal;
-    greater; 
-    greater_equal;
-    less; 
-    less_equal;
-    // Literals.
-    identifier; 
-    string; 
-    number;
-    // Keywords.
-    and; 
-    class; 
-    else; 
-    false; 
-    fun; 
-    for; 
-    if; 
-    nil; 
-    or;
-    print;
-    return; 
-    super;
-    this; 
-    true; 
-    var; 
-    while;
-    eof;
-}
 
-#[derive(Debug)]
-pub enum LiteralValue{
-    IntValue(i64),
-    Fvalue(f64),
-    StringValue(String),
-    Identifiers(String),
-}
-#[derive(Debug)]
-pub struct Token{
-    token_type: TokenType,
-    lexeme: String,
-    literal:LiteralValue,
-    line_number: u64,
-}
-
-impl Token{
-    pub fn new(token_type: TokenType,lexeme: String, literal:LiteralValue, line_number: u64 )-> Self{
-        Self{
-            token_type,
-            lexeme,
-            literal,
-            line_number,
+    fn skip_whitespace(&mut self){
+        while let Some(ch) = self.ch {
+            if !ch.is_whitespace(){
+                break;
+            }
+            self.read_char();
         }
     }
 
-    pub fn to_string(self: &Self) -> String {
-        format!("{} {} {}",self.token_type,self.lexeme,self.literal)
+    fn read_number(&mut self) -> Token{
+        let start = self.pos;
+        while let Some(ch) = self.ch {
+            if !ch.is_digit(10) && ch != '.'{
+                break;
+            }
+            self.read_char();
+        }
+        let number = self.input[start..self.pos].parse().unwrap();
+        Token::Number(number)
+    }
+
+    fn read_ident(&mut self) -> Token{
+        let start = self.pos;
+        while let Some(ch) = self.ch {
+            if !ch.is_alphabetic() {
+                break;
+            }
+            self.read_char();
+        }
+        let identifier = &self.input[start..self.pos];
+        Token::Identifier(identifier.to_string())
+    }
+
+    pub fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+
+        let token = match self.ch{
+            Some('+') => Token::Plus,
+            Some('-') => Token::Minus,
+            Some('/') => Token::Slash,
+            Some('*') => Token::Star,
+            Some('(') => Token::LParen,
+            Some(')') => Token::RParen,
+            Some(',') => Token::Comma,
+            Some(ch) if ch.is_digit(10) => self.read_number(),
+            Some(ch) if ch.is_alphabetic() => self.read_ident(),
+            None => Token::EOF,
+            _ => panic!("UNEXPECTED ERROR ! : {}",self.ch.unwrap()),
+        };
+        self.read_char();
+        token
     }
 }

@@ -1,86 +1,36 @@
-
 mod scanner;
-use crate::scanner::*;
+mod parser;
+mod ast;
+mod interpreter;
 
-use std::env;
-use std::fs;
-use std::process::exit;
-use std::io::{self,BufRead,Write};
+use std::io::{self,Write};
+use scanner::Scanner;
+use parser::Parser;
+use interpreter::Interpreter;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let mut interpreter = Interpreter::new();
+
+    interpreter.set_variable("x".to_string(), 10.0);
     
-    if args.len()>2{
-        println!("arg leng >2");
-        exit(64);
-    } else if args.len() == 2 {
-      match run_file(&args[1]){
-        Ok(_) => exit(0),
-        Err(msg) => {
-            println!("Error\n{}",msg);
-            exit(1);
-        }
-    }
-}         
-    else {
-        match run_prompt() {
-            Ok(_) => exit(0),
-            Err(msg) => {
-                println!("Error\n{}", msg);
-                exit(1);
-            }
-        }
-    }
-}
-
-
-fn run_file(path: &str)->Result<(),String> {        
-    match fs::read_to_string(path){
-        Err(msg) => return Err(msg.to_string()),
-        Ok(contents) => return run(&contents),
-    }
-
-}
-
-fn run(contents: &str) -> Result<(), String>{
-    let scanner =Scanner::new(contents);
-    let tokens = scanner.scan_tokens()?;
-
-    for token in tokens{
-        println!("{:?}", token);
-    }
-    return Ok(());
-
-   
-}
-    
-
-fn run_prompt() -> Result<(), String>{
     loop {
-        print!("> ");
-        match io::stdout().flush() {
-            Ok(_)=> (),
-            Err(_) => return Err("Could not flush stdout".to_string()),
+        print!("Enter expression (or type 'exit' to quit): ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+
+        if input == "exit" {
+            break;
         }
-        let mut buffer = String::new();
-        let stdin = io::stdin();
-        let mut handle = stdin.lock();
-        match handle.read_line(&mut buffer){
-            Ok(n) => {
-                if n <= 1{
-                    return Ok(());
-                }
-            }
-            Err(_) =>  return Err("Could not read line".to_string()),
-        }
-        println!("Echo:{}", buffer);
-        match run(&buffer) {
-            Ok(_) => (),
-            Err(msg) => println!("Error\n{}",msg)
-        }
+
+        let scanner = Scanner::new(input);
+        let mut parser = Parser::new(scanner);
+        let ast = parser.parse();
+
+        let result = interpreter.interpret(ast);
+
+        println!("Result: {}", result);
     }
-    
 }
-
-
-
